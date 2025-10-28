@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>簡易車資與回金計算器</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --text:#222; --muted:#666; --brand:#3b82f6; --ok:#16a34a; --warn:#ca8a04; --danger:#dc2626;
+      --shadow:0 10px 20px rgba(0,0,0,.08), 0 2px 6px rgba(0,0,0,.05);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans",sans-serif}
+    .wrap{max-width:1100px;margin:32px auto;padding:0 16px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+    h1{font-size:22px;margin:0 0 12px}
+    p.desc{color:var(--muted);margin:0 0 18px}
+    .grid{display:grid;gap:14px}
+    @media(min-width:980px){.grid{grid-template-columns:1.2fr .8fr}}
+    label{display:block;font-weight:600;margin:0 0 6px}
+    input[type="number"], select{width:100%;padding:12px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:16px}
+    input[type="number"]:focus, select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 4px rgba(59,130,246,.15)}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .btn{display:inline-flex;align-items:center;gap:8px;background:var(--brand);color:#fff;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#1118270d;color:#111827}
+    .btn.ghost{background:#fff;border:1px dashed #cbd5e1;color:#334155}
+    .btn:active{transform:translateY(1px)}
+    .results{margin-top:18px;display:grid;gap:12px}
+    .pill{display:inline-block;background:#1118270d;color:#111827;padding:6px 10px;border-radius:999px;font-size:12px}
+    .kpi{display:flex;align-items:baseline;gap:10px}
+    .kpi .value{font-size:28px;font-weight:800}
+    .kpi small{color:var(--muted)}
+    .breakdown{border:1px dashed #e5e7eb;border-radius:12px;padding:12px}
+    .list{margin:0;padding:0;list-style:none}
+    .list li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dotted #eee}
+    .list li:last-child{border-bottom:0}
+    .foot{margin-top:8px;color:var(--muted);font-size:13px}
+    .tr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:center;padding:8px 10px;background:#f8fafc;border-radius:10px}
+    .tr b{font-size:16px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>🚕 簡易車資與司機回金計算器</h1>
+      <p class="desc">規則：起跳 <b>$80</b> ・ 每公里 <b>$15</b> ・ 每分鐘 <b>$3</b> ・ <b>超過 20 公里</b> 每公里加 <b>$10</b>。回金：以完整車資為基礎，每滿 $100 回 $10（無條件捨去），自家 +20／支援 +30。</p>
+
+      <div class="grid">
+        <div class="card" style="padding:16px">
+          <div class="pill">模式 A：用距離＋時間估車資並算回金</div>
+          <div class="grid" style="margin-top:10px">
+            <div>
+              <label for="km">行車距離（公里）</label>
+              <input id="km" type="number" step="0.1" min="0" placeholder="例如：6.7" />
+            </div>
+            <div>
+              <label for="min">行車時間（分鐘）</label>
+              <input id="min" type="number" step="1" min="0" placeholder="例如：27" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:14px">
+            <div>
+              <label for="driver">司機類型</label>
+              <select id="driver">
+                <option value="self">自家</option>
+                <option value="support">支援</option>
+              </select>
+            </div>
+            <div>
+              <label for="rounding">金額顯示</label>
+              <select id="rounding">
+                <option value="none">不四捨五入</option>
+                <option value="nearest">四捨五入到元</option>
+                <option value="ten">四捨五入到 10 元</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn" id="calc">計算（模式 A）</button>
+            <button class="btn secondary" id="demo1">示例 ①（6.7km / 27分）</button>
+            <button class="btn secondary" id="demo2">示例 ②（28.8km / 28分）</button>
+          </div>
+
+          <hr style="margin:20px 0;border:none;border-top:1px dashed #e5e7eb">
+          <div class="pill">模式 B：司機回傳乘客實付金額（截圖）→ 直接算回金</div>
+          <div class="row" style="margin-top:10px">
+            <div>
+              <label for="amt">乘客實付金額（$）</label>
+              <input id="amt" type="number" step="1" min="0" placeholder="例如：1005 或 684" />
+            </div>
+            <div style="display:flex;align-items:flex-end">
+              <button class="btn ghost" id="calcByAmt">計算回金（模式 B）</button>
+            </div>
+          </div>
+          <div class="foot">模式 B 會同時列出「自家／支援」兩種回金與司機實收；此模式不需要輸入距離與時間。</div>
+        </div>
+
+        <div class="card" style="padding:16px">
+          <div class="pill">結果</div>
+          <div class="results">
+            <div class="kpi">
+              <div class="value" id="fare">—</div>
+              <small>乘客車資（含長途加成）</small>
+            </div>
+            <div class="kpi">
+              <div class="value" id="kickback">—</div>
+              <small>司機回金（依類型）</small>
+            </div>
+            <div class="kpi">
+              <div class="value" id="driverNet">—</div>
+              <small>司機實收（車資 − 回金）</small>
+            </div>
+
+            <div class="breakdown">
+              <ul class="list" id="detail"></ul>
+            </div>
+
+            <div class="breakdown" id="byAmtBox" style="display:none">
+              <div class="pill" style="margin-bottom:8px">由截圖金額推回金</div>
+              <div class="tr"><span>自家回金</span><b id="byAmtSelf">—</b><small id="byAmtSelfNet" class="foot"></small></div>
+              <div class="tr"><span>支援回金</span><b id="byAmtSupport">—</b><small id="byAmtSupportNet" class="foot"></small></div>
+            </div>
+
+            <div id="note" class="foot"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+(function(){
+  const el = (id)=>document.getElementById(id);
+  const fmt = (n)=> n===null? '—' : new Intl.NumberFormat('zh-Hant-TW', {minimumFractionDigits:0, maximumFractionDigits:1}).format(n);
+  const rounders = {
+    none: (v)=>v,
+    nearest: (v)=> Math.round(v),
+    ten: (v)=> Math.round(v/10)*10
+  };
+
+  function compute(){
+    const km = parseFloat(el('km').value);
+    const min = parseFloat(el('min').value);
+    const driver = el('driver').value; // self | support
+    const rounding = el('rounding').value;
+
+    if(isNaN(km) || isNaN(min)){
+      alert('請輸入距離與時間');
+      return;
+    }
+
+    const base = 80;
+    const perKm = 15;
+    const perMin = 3;
+    const longAdd = Math.max(0, km - 20) * 10;
+
+    const subtotal = base + (km * perKm) + (min * perMin);
+    const fareTotalRaw = subtotal + longAdd;
+    const fareTotal = rounders[rounding](fareTotalRaw);
+
+    // 回金規則（最終版）：以完整車資為基礎，每滿 100 元回 10 元（無條件捨去）；自家 +20；支援 +30
+    const percent = Math.floor(fareTotalRaw / 100) * 10;
+    const kickback = (driver === 'self') ? (percent + 20) : (percent + 30);
+    const driverNet = fareTotal - kickback;
+
+    el('fare').textContent = `$ ${fmt(fareTotal)}`;
+    el('kickback').innerHTML = `$ ${fmt(kickback)} <span class="badge ${driver==='self'?'slate':'amber'}">${driver==='self'?'自家':'支援'}</span>`;
+    el('driverNet').textContent = `$ ${fmt(driverNet)}`;
+
+    const d = [
+      ['起跳', `$ ${fmt(base)}`],
+      ['時間費（$3/分）', `${min} 分 ＝ $ ${fmt(min*perMin)}`],
+      ['距離費（$15/公里）', `${km.toFixed(1)} 公里 ＝ $ ${fmt(km*perKm)}`],
+      ['超 20 公里加成（$10/公里）', `${(km>20? (km-20).toFixed(1):'0.0')} 公里 ＝ $ ${fmt(longAdd)}`],
+      ['小計（未套用顯示四捨五入）', `$ ${fmt(fareTotalRaw)}`]
+    ];
+    el('detail').innerHTML = d.map(([k,v])=>`<li><span>${k}</span><b>${v}</b></li>`).join('');
+
+    el('byAmtBox').style.display = 'none';
+
+    let note = '';
+    if(km===6.7 && min===27){
+      note = '示例①：80 + 27×3 + 6.7×15 = 261.5。';
+    } else if (km===28.8 && min===28){
+      note = '示例②：80 + 28×3 + 28.8×15 = 596；長途加成 8.8×10 = 88；合計 $684。回金＝(684→每百回10→60) + 支援加成30 ＝ 90。';
+    } else {
+      note = '備註：回金＝以完整車資為基礎，每滿 100 元回 10 元（無條件捨去），自家 +20／支援 +30。';
+    }
+    el('note').textContent = note;
+  }
+
+  function computeByAmount(){
+    const amount = parseFloat(el('amt').value);
+    if(isNaN(amount)){
+      alert('請輸入乘客實付金額');
+      return;
+    }
+
+    // 以截圖金額作為完整車資基礎
+    const fareTotalRaw = amount;
+    const percent = Math.floor(fareTotalRaw / 100) * 10; // 每滿 100 回 10（無條件捨去）
+    const kickSelf = percent + 20;
+    const kickSup = percent + 30;
+
+    el('fare').textContent = `$ ${fmt(amount)}`;
+    el('kickback').textContent = '—';
+    el('driverNet').textContent = '—';
+    el('detail').innerHTML = `<li><span>以截圖金額為基礎</span><b>$ ${fmt(amount)}</b></li><li><span>每百回金（無條件捨去）</span><b>$ ${fmt(percent)}</b></li>`;
+
+    el('byAmtSelf').textContent = `$ ${fmt(kickSelf)}`;
+    el('byAmtSupport').textContent = `$ ${fmt(kickSup)}`;
+    el('byAmtSelfNet').textContent = `司機實收（自家）＝ $ ${fmt(amount - kickSelf)}`;
+    el('byAmtSupportNet').textContent = `司機實收（支援）＝ $ ${fmt(amount - kickSup)}`;
+    el('byAmtBox').style.display = '';
+
+    el('note').textContent = '模式 B：由截圖金額直接計算回金與司機實收（自家／支援）。';
+  }
+
+  // Demo buttons
+  el('demo1').addEventListener('click', ()=>{
+    el('km').value = 6.7; el('min').value = 27; el('driver').value = 'self'; el('rounding').value='ten'; compute();
+  });
+  el('demo2').addEventListener('click', ()=>{
+    el('km').value = 28.8; el('min').value = 28; el('driver').value = 'support'; el('rounding').value='none'; compute();
+  });
+
+  el('calc').addEventListener('click', compute);
+  el('calcByAmt').addEventListener('click', computeByAmount);
+})();
+</script>
+</body>
+</html>
